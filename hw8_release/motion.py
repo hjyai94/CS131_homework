@@ -40,11 +40,24 @@ def lucas_kanade(img1, img2, keypoints, window_size=5):
         y = int(round(y)); x = int(round(x))
 
         ### YOUR CODE HERE
-        pass
+        delta = np.hstack((Ix[y-w: y+w+1, x-w: x+w+1].reshape(window_size*window_size, 1), \
+        Iy[y-w: y+w+1, x-w: x+w+1].reshape(window_size*window_size, 1)))
+        It_reshape = It[y-w: y+w+1, x-w: x+w+1].reshape(window_size*window_size, 1)
+        U = -np.linalg.inv(delta.T.dot(delta)).dot(delta.T.dot(It_reshape))
+        flow_vectors.append(np.array((np.float(U[0]), np.float(U[1]))))
+
+        # cur_Ix = Ix[y - w:y + w + 1, x - w: x + w + 1].T
+        # cur_Iy = Iy[y - w:y + w + 1, x - w: x + w + 1].T
+        # cur_It = It[y - w:y + w + 1, x - w: x + w + 1].T
+        # cur_Ix = cur_Ix.flatten(order='F')
+        # cur_Iy = cur_Iy.flatten(order='F')
+        # cur_It = -cur_It.flatten(order='F')
+        # A = np.vstack((cur_Ix, cur_Iy)).T
+        # U = np.dot(np.dot(np.linalg.inv(np.dot(A.T, A)), A.T), cur_It)
+        # flow_vectors.append(np.array((U[0], U[1])))
         ### END YOUR CODE
 
     flow_vectors = np.array(flow_vectors)
-
     return flow_vectors
 
 def iterative_lucas_kanade(img1, img2, keypoints,
@@ -86,7 +99,11 @@ def iterative_lucas_kanade(img1, img2, keypoints,
 
         # TODO: Compute inverse of G at point (x1, y1)
         ### YOUR CODE HERE
-        pass
+        square_Ix = np.sum((Ix[y1-w: y1+w+1, x1-w: x1+w+1]) ** 2)
+        square_Iy = np.sum((Iy[y1-w: y1+w+1, x1-w: x1+w+1]) ** 2)
+        Ix_Iy = np.sum(Ix[y1-w: y1+w+1, x1-w: x1+w+1] * Iy[y1-w: y1+w+1, x1-w: x1+w+1])
+        G = np.array([[square_Ix, Ix_Iy], [Ix_Iy, square_Iy]])
+        inverse_G = np.linalg.inv(G)
         ### END YOUR CODE
 
         # iteratively update flow vector
@@ -97,7 +114,13 @@ def iterative_lucas_kanade(img1, img2, keypoints,
 
             # TODO: Compute bk and vk = inv(G) x bk
             ### YOUR CODE HERE
-            pass
+            I_Ix = np.sum((img1[y1-w: y1+w+1, x1-w: x1+w+1] - img2[y2-w: y2+w+1, x2-w: x2+w+1])\
+            * Ix[y1-w: y1+w+1, x1-w: x1+w+1])
+
+            I_Iy = np.sum((img1[y1-w: y1+w+1, x1-w: x1+w+1] - img2[y2-w: y2+w+1, x2-w: x2+w+1])\
+            * Iy[y1-w: y1+w+1, x1-w: x1+w+1])
+            bk = np.array([I_Ix, I_Iy])
+            vk = np.array(inverse_G.dot(bk))
             ### END YOUR CODE
 
             # Update flow vector by vk
@@ -107,7 +130,7 @@ def iterative_lucas_kanade(img1, img2, keypoints,
         flow_vectors.append([vy, vx])
 
     return np.array(flow_vectors)
-        
+
 
 def pyramid_lucas_kanade(img1, img2, keypoints,
                          window_size=9, num_iters=5,
@@ -132,13 +155,14 @@ def pyramid_lucas_kanade(img1, img2, keypoints,
     # Build image pyramids of img1 and img2
     pyramid1 = tuple(pyramid_gaussian(img1, max_layer=level, downscale=scale))
     pyramid2 = tuple(pyramid_gaussian(img2, max_layer=level, downscale=scale))
-
     # Initialize pyramidal guess
     g = np.zeros(keypoints.shape)
 
     for L in range(level, -1, -1):
         ### YOUR CODE HERE
-        pass
+        current_keypoints = keypoints / pow(2, L)
+        d = iterative_lucas_kanade(pyramid1[L], pyramid2[L], keypoints=current_keypoints, g=g)
+        g = L * (g + d)
         ### END YOUR CODE
 
     d = g + d
@@ -159,7 +183,13 @@ def compute_error(patch1, patch2):
     assert patch1.shape == patch2.shape, 'Differnt patch shapes'
     error = 0
     ### YOUR CODE HERE
-    pass
+    patch1 = (patch1 - np.mean(patch1)) / np.std(patch1)
+    patch1 = (patch2 - np.mean(patch2)) / np.std(patch2)
+    error = np.mean((patch1 - patch2) ** 2)
+
+    # normalized_patch1 = patch1 / np.linalg.norm(patch1)
+    # normalized_patch2 = patch2 / np.linalg.norm(patch2)
+    # error = np.mean((normalized_patch1 - normalized_patch2) ** 2)
     ### END YOUR CODE
     return error
 
@@ -240,9 +270,14 @@ def IoU(bbox1, bbox2):
     score = 0
 
     ### YOUR CODE HERE
-    pass
+    x_tl = max(x1,x2)
+    y_tl = max(y1,y2)
+    x_dr = min(x1+w1,x2+w2)
+    y_dr = min(y1+h1,y2+h2)
+    inter_area = (y_dr-y_tl+1)*(x_dr-x_tl+1)
+    area1 = w1*h1
+    area2 = w2*h2
+    score = inter_area/(area1+area2-inter_area)
     ### END YOUR CODE
 
     return score
-
-

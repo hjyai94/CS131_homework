@@ -446,29 +446,39 @@ def compute_forward_cost(image, energy):
     ### YOUR CODE HERE
     for i in range(1, H):
         for j in range(W):
-            if j>0 and j < w-1:
-                CL[i, j] = abs(image[i, j+1] - image[i, j -1]) + abs(image[i-1, j] - image[i, j-1])
-                CV[i, j] = abs(image[i, j+1] - image[i, j-1])
-                CR[i, j] = abs(image[i, j+1] - image[i, j-1]) + abs(image[i-1, j] - image[i, j+1])
-            elif j == 0:
-                CL[i, j] = abs(image[i, j+1]) + abs(image[i-1, j])
-                CV[i, j] = abs(image[i, j+1])
-                CR[i, j] = abs(image[i, j+1]) + abs(image[i-1, j] - image[i, j+1])
-            else:
-                CL[i, j] = abs(image[i, j -1]) + abs(image[i-1, j] - image[i, j-1])
-                CV[i, j] = abs(image[i, j-1])
-                CR[i, j] = abs(image[i, j-1]) + abs(image[i-1, j])
-            c1 = cost(i-1, j-1) + CL[i, j]
-            c2 = cost(i-1, j) + CV[i, j]
-            c3 = cost(i-1, j+1) + CR[i, j]
-            c_min = min(min(c1, c2), c3)
-            cost[i, j] = image[i, j] + c_min
-            if c1 == c_min:
-                paths[i, j] = -1
-            elif c2 == c_min:
-                paths[i, j] = 0
-            elif c3 == c_min:
-                paths[i, j] = 1
+            if j == 0:
+                c2 = cost[i-1, j]
+                c3 = cost[i-1, j+1] + abs(image[i-1, j] - image[i, j+1])
+                c_min = min(c2, c3)
+                cost[i, j] = energy[i, j] + c_min
+                if c2 == c_min:
+                    paths[i, j] = 0
+                elif c3 == c_min:
+                    paths[i, j] = 1
+            elif j>0 and j<W-1:
+                c1 = abs(image[i, j+1] - image[i, j -1]) + abs(image[i-1, j] - image[i, j-1])
+                c2 = abs(image[i, j+1] - image[i, j-1])
+                c3 = abs(image[i, j+1] - image[i, j-1]) + abs(image[i-1, j] - image[i, j+1])
+                c1 += cost[i-1, j-1]
+                c2 += cost[i-1, j]
+                c3 += cost[i-1, j+1]
+                c_min = min(min(c1, c2), c3)
+                cost[i, j] = energy[i, j] + c_min
+                if c1 == c_min:
+                    paths[i, j] = -1
+                elif c2 == c_min:
+                    paths[i, j] = 0
+                elif c3 == c_min:
+                    paths[i, j] = 1
+            elif j == W-1:
+                c1 = cost[i-1, j-1] + abs(image[i-1, j] - image[i, j-1])
+                c2 = cost[i-1, j]
+                c_min = min(c1, c2)
+                cost[i, j] = energy[i, j] + c_min
+                if c1 == c_min:
+                    paths[i, j] = -1
+                elif c2 == c_min:
+                    paths[i, j] = 0
     ### END YOUR CODE
 
     # Check that paths only contains -1, 0 or 1

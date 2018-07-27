@@ -33,10 +33,27 @@ def kmeans(features, k, num_iters=100):
     idxs = np.random.choice(N, size=k, replace=False)
     centers = features[idxs]
     assignments = np.zeros(N)
-
+    cluster_to_idx={}
+    # 设置4个list用来存放features的index
+    for i in range(k):
+        cluster_to_idx[i]=[]
     for n in range(num_iters):
         ### YOUR CODE HERE
-        pass
+        for i in range(N):
+            distances = np.sqrt(np.sum(np.square(centers-features[i]),axis=1))
+            assignments[i] = np.argmin(distances)
+            cluster_to_idx[int(assignments[i])].append(i)
+        for j in range(k):
+            centers[j] = np.mean(features[np.array(cluster_to_idx[j])])
+            min_dist=1e10
+            index = -1
+            for ii in range(len((cluster_to_idx[j]))):
+                dist = np.sum((centers[j]-features[cluster_to_idx[j][ii]])**2)
+                if dist<min_dist:
+                    min_dist = dist
+                    index = cluster_to_idx[j][ii]
+            centers[j] = features[index]
+            cluster_to_idx[j] = []
         ### END YOUR CODE
 
     return assignments
@@ -70,9 +87,21 @@ def kmeans_fast(features, k, num_iters=100):
     centers = features[idxs]
     assignments = np.zeros(N)
 
+    delta = np.zeros(shape=(N,k),dtype=np.int32)
+
     for n in range(num_iters):
         ### YOUR CODE HERE
-        pass
+        distances = np.zeros(shape=(N,k),dtype=np.float32)
+        for i in range(k):
+            distances[:,i] = np.sum((features-centers[i])**2,axis=1)
+        indices = np.argmin(distances,axis=1)
+        for j in range(N):
+            delta[j,indices[j]]=1
+        new_centers = np.zeros_like(centers)
+        for i in range(k):
+            new_centers[i] = np.mean(features[np.nonzero(delta[:,i])])
+            new_centers[i] = features[np.argmin(np.sum(features[np.nonzero(delta[:,i])]-new_centers[i]))]
+    assignments = delta.nonzero()[1]
         ### END YOUR CODE
 
     return assignments
@@ -121,10 +150,27 @@ def hierarchical_clustering(features, k):
     assignments = np.arange(N)
     centers = np.copy(features)
     n_clusters = N
+    distances = np.zeros(shape=(N, N), dtype=np.float32)
 
     while n_clusters > k:
         ### YOUR CODE HERE
-        pass
+        distances = pdist(centers)
+        matrixDistances = squareform(distances)
+        matrixDistances = np.where(matrixDistances != 0.0, matrixDistances, 1e10)
+        minValue = np.argmin(matrixDistances)
+        min_i = minValue // n_clusters
+        min_j = minValue - min_i * n_clusters
+        if min_j < min_i:
+            min_i, min_j = min_j, min_i
+        for i in range(N):
+            if assignments[i] == min_j:
+                assignments[i] = min_i
+        for i in range(N):
+            if assignments[i] > min_j:
+                assignments[i] -= 1
+        centers = np.delete(centers, min_j, axis = 0)
+        centers[min_i] = np.mean(features[assignments == min_i], axis = 0)
+        n_clusters -= 1
         ### END YOUR CODE
 
     return assignments
@@ -145,7 +191,13 @@ def color_features(img):
     features = np.zeros((H*W, C))
 
     ### YOUR CODE HERE
-    pass
+    # 注释部分是我自己的代码，比较复杂。
+    # k = 0
+    # for i in range(H):
+    #     for j in range(W):
+    #         features[k] = img[i, j, :]
+    #         k = k + 1
+    features = img.reshape(H*W, C)
     ### END YOUR CODE
 
     return features
@@ -173,7 +225,16 @@ def color_position_features(img):
     features = np.zeros((H*W, C+2))
 
     ### YOUR CODE HERE
-    pass
+    # features[:, 0:C] = img.reshape(H*W, C)
+    # position = np.mgrid[0:W, 0:H]
+    # position = position.reshape(H*W, 2)
+    # features[:, C:C+2] = position
+    # features = (features - np.mean(features))/np.std(features)
+
+    locations = np.dstack(np.mgrid[0 : H, 0 : W]).reshape((H * W, 2))
+    features[:, 0:C] = color.reshape((H * W, C))
+    features[:, C : C+2] = locations
+    features = (features - np.mean(features, axis = 0)) / np.std(features, axis = 0)
     ### END YOUR CODE
 
     return features
@@ -192,7 +253,7 @@ def my_features(img):
     pass
     ### END YOUR CODE
     return features
-    
+
 
 ### Quantitative Evaluation
 def compute_accuracy(mask_gt, mask):
@@ -213,7 +274,7 @@ def compute_accuracy(mask_gt, mask):
 
     accuracy = None
     ### YOUR CODE HERE
-    pass
+    accuracy = np.mean(mask_gt == mask)
     ### END YOUR CODE
 
     return accuracy
@@ -221,7 +282,7 @@ def compute_accuracy(mask_gt, mask):
 def evaluate_segmentation(mask_gt, segments):
     """ Compare the estimated segmentation with the ground truth.
 
-    Note that 'mask_gt' is a binary mask, while 'segments' contain k segments. 
+    Note that 'mask_gt' is a binary mask, while 'segments' contain k segments.
     This function compares each segment in 'segments' with the ground truth and
     outputs the accuracy of the best segment.
 
